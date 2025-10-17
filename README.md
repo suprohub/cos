@@ -40,10 +40,10 @@ Virtual keyboard layout:
 ```
                   Constants
                       |
-                      π
+                  τ γ π e φ √2
                   √ 7 8 9 ÷
-Unary operators — x²4 5 6 × — Binary operators
-                    1 2 3 +
+Unary operators — - 4 5 6 × — Binary operators
+                  x²1 2 3 +
                     . 0 = -
                       |
              Advanced functions

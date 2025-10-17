@@ -8,12 +8,14 @@ use arduino_hal::{
     port::{Pin, mode::Output},
     prelude::*,
 };
-use heapless::Vec;
 use cos::{
-    BinOp, Calculator, Const, Key, UnOp, debug, info_infallible,
+    Calculator, Key,
+    config::{DEFAULT_POS, FRACTION_COUNT, keyboard_layout},
+    debug, info_infallible,
     log::{SERIAL, Serial},
     num::Num,
 };
+use heapless::Vec;
 
 #[expect(clippy::unwrap_used)]
 #[arduino_hal::entry]
@@ -39,7 +41,7 @@ fn main() -> ! {
     let vry = pins.a1.into_analog_input(&mut adc);
 
     let mut input = InputState::new();
-    let mut calc = Calculator::<2>::new();
+    let mut calc = Calculator::<FRACTION_COUNT>::new();
 
     loop {
         let pressed = !sw.is_high();
@@ -69,7 +71,7 @@ fn main() -> ! {
     }
 }
 
-fn display_number(led: &mut Pin<Output, PB3>, value: Num<2>) -> Result<(), u8> {
+fn display_number(led: &mut Pin<Output, PB3>, value: Num<FRACTION_COUNT>) -> Result<(), u8> {
     let mut n = value.0;
     debug!("Value: {}", n);
 
@@ -99,7 +101,7 @@ fn display_number(led: &mut Pin<Output, PB3>, value: Num<2>) -> Result<(), u8> {
                 nums.push(digit)?;
             }
 
-            if i == 1 && !nums.is_empty() {
+            if i == FRACTION_COUNT - 1 && !nums.is_empty() {
                 nums.push(10)?;
             }
 
@@ -144,7 +146,7 @@ struct InputState {
 impl InputState {
     fn new() -> Self {
         Self {
-            pos: Self::DEFAULT_POS,
+            pos: DEFAULT_POS,
             old_dir: Dir::Center,
             already_pressed: false,
         }
@@ -179,30 +181,19 @@ impl InputState {
         false
     }
 
-    // Default pos need to be on number 5
-    const DEFAULT_POS: (u8, u8) = (2, 3);
-
     fn key(&self) -> Key {
-        #[rustfmt::skip]
-        let mut keyboard_layout = [
-            [Key::None,         Key::None,   Const::Pi.into(), Key::None,   Key::None,         Key::None],
-            [UnOp::Sqrt.into(), Key::Num(7), Key::Num(8),      Key::Num(9), BinOp::Div.into(), Key::None],
-            [UnOp::Pow2.into(), Key::Num(4), Key::Num(5),      Key::Num(6), BinOp::Mul.into(), Key::None],
-            [Key::None,         Key::Num(1), Key::Num(2),      Key::Num(3), BinOp::Add.into(), Key::None],
-            [Key::None,         Key::Dot,    Key::Num(0),      Key::Result, BinOp::Sub.into(), Key::None],
-            [Key::None,         Key::None,   Key::None,        Key::None,   Key::None,         Key::None],
-        ];
-
+        let mut keyboard_layout = keyboard_layout();
         keyboard_layout.reverse();
 
+        // Get first by y and when by x
         keyboard_layout
-            .get(self.pos.0 as usize)
-            .and_then(|r| r.get(self.pos.1 as usize).copied())
+            .get(self.pos.1 as usize)
+            .and_then(|r| r.get(self.pos.0 as usize).copied())
             .unwrap_or(Key::None)
     }
 
     fn reset_position(&mut self) {
-        self.pos = Self::DEFAULT_POS;
+        self.pos = DEFAULT_POS;
     }
 }
 

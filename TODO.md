@@ -1,13 +1,17 @@
 # TODO
 
 ## Common
-- [ ] More configuration in code
+- [x] More configuration in code
+    - [x] Separate configuration in file config.rs
+    - [ ] Add config for rounding in math ops and rounding in consts
+- [ ] Fix safety comments
 - [ ] Integrate with a vibration motor instead of an LED
 - [ ] Integrate a Wi‑Fi module
 - [ ] Reassemble the circuit into a more compact layout
 
 ## Autonomous calculations
-- [ ] Add constants like PI
+- [x] Add constants like PI
+    - [ ] Add more useful constants and remove useless
 - [x] Square root
 - [ ] Arbitrary root
 - [ ] Arbitrary pow

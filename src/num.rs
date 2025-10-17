@@ -18,7 +18,7 @@ use ufmt::derive::uDebug;
 pub struct Num<const F: u8>(pub i64);
 
 impl<const F: u8> Num<F> {
-    pub const ZERO: Self = Self(0);
+    /// Current scale of frac
     pub const SCALE: i64 = {
         let mut s: i64 = 1;
         let mut i = 0u8;
@@ -28,6 +28,32 @@ impl<const F: u8> Num<F> {
         }
         s
     };
+
+    /// Just a 0 incapsulated in `Num`
+    pub const ZERO: Self = Self(0);
+
+    /// Just a 1 incapsulated in `Num`
+    pub const ONE: Self = Self(1);
+
+    /// Archimedes' constant (π)
+    pub const PI: Self = Self::from_2_longs(3i64, 1415926535897932384i64);
+
+    /// The full circle constant (τ)
+    ///
+    /// Equal to 2π.
+    pub const TAU: Self = Self::from_2_longs(6, 2831853071795864769);
+
+    /// The golden ratio (φ)
+    pub const PHI: Self = Self::from_2_longs(6, 2831853071795864769);
+
+    /// The Euler-Mascheroni constant (γ)
+    pub const EGAMMA: Self = Self::from_2_longs(0, 5772156649015328606);
+
+    /// Square root of 2 (√2)
+    pub const SQRT_2: Self = Self::from_2_longs(1, 4142135623730950488);
+
+    /// Euler's number (e)
+    pub const E: Self = Self::from_2_longs(2, 7182818284590452353);
 
     /// Create from raw inner representation (no scaling).
     #[inline]
@@ -47,6 +73,17 @@ impl<const F: u8> Num<F> {
         Self(n.saturating_mul(Self::SCALE))
     }
 
+    /// Create from integer and fraction
+    #[inline]
+    pub const fn from_2_longs(int: i64, frac: i64) -> Self {
+        if F == 0 {
+            Self(int)
+        } else {
+            Self(int.saturating_mul(Self::SCALE) + frac / 10i64.pow(19 - F as u32))
+        }
+    }
+
+    /// Get square root of self
     pub const fn sqrt(self) -> Self {
         // Why i dont use `Self(self.0.wrapping_mul(Self::SCALE).isqrt())`?
         // Cool question, because my code looks weird like why

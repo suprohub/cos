@@ -4,6 +4,7 @@ use ufmt::derive::uDebug;
 
 use crate::num::Num;
 
+pub mod config;
 pub mod log;
 pub mod num;
 
@@ -38,24 +39,20 @@ impl<const F: u8> Calculator<F> {
     pub fn handle_input(&mut self, key: Key) -> Result<Option<Num<F>>, CalcError> {
         match key {
             Key::Num(n) => {
-                if self.op.is_none() {
-                    if self.frac {
-                        if self.frac_digits < F {
-                            let scale_factor = 10i64.pow((F - self.frac_digits - 1) as u32);
-                            self.a += Num::from_raw((n as i64) * scale_factor);
-                            self.frac_digits += 1;
-                        }
-                    } else {
-                        self.a = self.a * Num::from_int(10) + Num::from_int(n as i64);
-                    }
-                } else if self.frac {
+                let v = if self.op.is_none() {
+                    &mut self.a
+                } else {
+                    &mut self.b
+                };
+
+                if self.frac {
                     if self.frac_digits < F {
                         let scale_factor = 10i64.pow((F - self.frac_digits - 1) as u32);
-                        self.b += Num::from_raw((n as i64) * scale_factor);
+                        *v += Num::from_raw((n as i64) * scale_factor);
                         self.frac_digits += 1;
                     }
                 } else {
-                    self.b = self.b * Num::from_int(10) + Num::from_int(n as i64);
+                    *v = *v * Num::from_int(10) + Num::from_int(n as i64);
                 }
             }
             Key::Dot => {
@@ -73,10 +70,20 @@ impl<const F: u8> Calculator<F> {
                 self.frac_digits = 0;
                 return Ok(Some(self.calc()?));
             }
-            Key::Const(c) => match c {
-                // TODO: maybe use f64::PI and when get first numbers?
-                Const::Pi => todo!(),
-            },
+            Key::Const(c) => {
+                *if self.op.is_none() {
+                    &mut self.a
+                } else {
+                    &mut self.b
+                } = match c {
+                    Const::Pi => Num::PI,
+                    Const::Tau => Num::TAU,
+                    Const::Phi => Num::PHI,
+                    Const::EGamma => Num::EGAMMA,
+                    Const::Sqrt2 => Num::SQRT_2,
+                    Const::E => Num::E,
+                }
+            }
             Key::Result => {
                 let result = self.calc()?;
                 self.frac = false;
@@ -113,6 +120,7 @@ impl<const F: u8> Calculator<F> {
                 }
             }
             Op::UnOp(op) => match op {
+                UnOp::Neg => -a,
                 UnOp::Sqrt => a.sqrt(),
                 UnOp::Pow2 => a * a,
             },
@@ -173,6 +181,7 @@ pub enum BinOp {
 
 #[derive(uDebug, Clone, Copy, PartialEq, Eq)]
 pub enum UnOp {
+    Neg,
     Sqrt,
     Pow2,
 }
@@ -180,6 +189,11 @@ pub enum UnOp {
 #[derive(uDebug, Clone, Copy, PartialEq, Eq)]
 pub enum Const {
     Pi,
+    Tau,
+    Phi,
+    EGamma,
+    Sqrt2,
+    E,
 }
 
 #[derive(Debug, uDebug, Clone, Copy, PartialEq, Eq)]
