@@ -33,6 +33,7 @@ Calculator control is intuitive:
 - After pressing, the cursor returns to the starting position (digit 5)
 
 Virtual keyboard layout:
+```
                   Constants
                       |
                       π
@@ -42,6 +43,7 @@ Unary operators — x²4 5 6 × — Binary operators
                     . 0 = -
                       |
              Advanced functions
+```
 
 Key types:
 - Digits - input numbers

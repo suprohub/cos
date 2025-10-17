@@ -20,7 +20,7 @@ bench = false
 embedded-hal = "1.0"
 ufmt = "0.2"
 heapless = { version = "0.9", features = ["nightly"] }
-avr-device = "0.7.0"
+avr-device = "0.7"
 arduino-hal = { git = "https://github.com/rahix/avr-hal", rev = "07ad523", features = ["arduino-nano"]}
 
 # Configure the build for minimal size - AVRs have very little program memory
