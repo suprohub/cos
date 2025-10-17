@@ -8,6 +8,7 @@
 - [ ] Integrate with a vibration motor instead of an LED
 - [ ] Integrate a Wi‑Fi module
 - [ ] Reassemble the circuit into a more compact layout
+- [ ] Reorganize virtual keyboard for more intuitive usage
 
 ## Autonomous calculations
 - [x] Add constants like PI
