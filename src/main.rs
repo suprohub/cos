@@ -52,6 +52,7 @@ fn main() -> ! {
                 if let Ok(v) = calc.handle_input(input.key()) {
                     if let Some(v) = v {
                         display_number(&mut vibro, v).unwrap();
+                        input.reset_position();
                         continue;
                     }
                 } else {
@@ -64,7 +65,7 @@ fn main() -> ! {
                 debug!("pos: {:?}", input.pos);
             }
 
-            blink(&mut vibro, 1, 50);
+            blink(&mut vibro, 1, 250);
         }
 
         arduino_hal::delay_ms(10);
@@ -101,8 +102,11 @@ fn display_number(vibro: &mut Pin<Output, PD3>, value: Num<FRACTION_COUNT>) -> R
                 nums.push(digit)?;
             }
 
-            if i == FRACTION_COUNT - 1 && !nums.is_empty() {
-                nums.push(10)?;
+            if i == FRACTION_COUNT - 1 {
+                zero_allow = true;
+                if !nums.is_empty() {
+                    nums.push(10)?;
+                }
             }
 
             n /= 10;
@@ -116,7 +120,7 @@ fn display_number(vibro: &mut Pin<Output, PD3>, value: Num<FRACTION_COUNT>) -> R
 
             match num {
                 0 => blink(vibro, 2, 150),
-                10 => blink(vibro, 5, 50),
+                10 => blink(vibro, 5, 100),
                 n @ 0..=9 => blink(vibro, n, 250),
                 _ => {}
             }
