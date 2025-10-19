@@ -5,7 +5,7 @@
     - [x] Separate configuration in file config.rs
     - [ ] Add config for rounding in math ops and rounding in consts
 - [ ] Fix safety comments
-- [ ] Integrate with a vibration motor instead of an LED
+- [x] Integrate with a vibration motor instead of an LED
 - [ ] Integrate a Wi‑Fi module
 - [ ] Reassemble the circuit into a more compact layout
 - [ ] Reorganize virtual keyboard for more intuitive usage

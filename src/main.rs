@@ -4,7 +4,7 @@
 use core::panic::PanicInfo;
 
 use arduino_hal::{
-    hal::port::PB3,
+    hal::port::PD3,
     port::{Pin, mode::Output},
     prelude::*,
 };
@@ -34,7 +34,7 @@ fn main() -> ! {
         SERIAL.write(Serial(serial));
     }
 
-    let mut led = pins.d11.into_output();
+    let mut vibro = pins.d3.into_output();
     let sw = pins.d2.into_pull_up_input();
 
     let vrx = pins.a0.into_analog_input(&mut adc);
@@ -51,11 +51,11 @@ fn main() -> ! {
             if pressed {
                 if let Ok(v) = calc.handle_input(input.key()) {
                     if let Some(v) = v {
-                        display_number(&mut led, v).unwrap();
+                        display_number(&mut vibro, v).unwrap();
                         continue;
                     }
                 } else {
-                    blink_err(&mut led);
+                    blink_err(&mut vibro);
                 }
                 debug!("pressed {:?}", input.key());
                 input.reset_position();
@@ -64,26 +64,26 @@ fn main() -> ! {
                 debug!("pos: {:?}", input.pos);
             }
 
-            blink(&mut led, 1, 50);
+            blink(&mut vibro, 1, 50);
         }
 
         arduino_hal::delay_ms(10);
     }
 }
 
-fn display_number(led: &mut Pin<Output, PB3>, value: Num<FRACTION_COUNT>) -> Result<(), u8> {
+fn display_number(vibro: &mut Pin<Output, PD3>, value: Num<FRACTION_COUNT>) -> Result<(), u8> {
     let mut n = value.0;
     debug!("Value: {}", n);
 
     arduino_hal::delay_ms(1500);
 
     if n == 0 {
-        blink(led, 2, 150);
+        blink(vibro, 2, 150);
     } else {
         if n < 0 {
-            led.set_high();
+            vibro.set_high();
             arduino_hal::delay_ms(1000);
-            led.set_low();
+            vibro.set_low();
             arduino_hal::delay_ms(1500);
         }
 
@@ -115,9 +115,9 @@ fn display_number(led: &mut Pin<Output, PB3>, value: Num<FRACTION_COUNT>) -> Res
             debug!("Num: {}", num);
 
             match num {
-                0 => blink(led, 2, 150),
-                10 => blink(led, 5, 50),
-                n @ 0..=9 => blink(led, n, 250),
+                0 => blink(vibro, 2, 150),
+                10 => blink(vibro, 5, 50),
+                n @ 0..=9 => blink(vibro, n, 250),
                 _ => {}
             }
 
@@ -210,20 +210,20 @@ fn read_joystick_direction(x: u16, y: u16) -> Dir {
     }
 }
 
-fn blink(led: &mut Pin<Output, PB3>, count: u8, duration: u16) {
+fn blink(vibro: &mut Pin<Output, PD3>, count: u8, duration: u16) {
     for _ in 0..count {
-        led.set_high();
+        vibro.set_high();
         arduino_hal::delay_ms(duration.into());
-        led.set_low();
+        vibro.set_low();
         arduino_hal::delay_ms(duration.into());
     }
 }
 
-fn blink_err(led: &mut Pin<Output, PB3>) {
+fn blink_err(vibro: &mut Pin<Output, PD3>) {
     for _ in 0..5 {
-        led.set_high();
+        vibro.set_high();
         arduino_hal::delay_ms(50);
-        led.set_low();
+        vibro.set_low();
         arduino_hal::delay_ms(50);
     }
 }
@@ -234,14 +234,14 @@ fn panic(_info: &PanicInfo<'_>) -> ! {
     // Disable interrupts - firmware has panicked so no ISRs should continue running
     avr_device::interrupt::disable();
 
-    // Get the peripherals so we can access the LED.
+    // Get the peripherals so we can access the vibro motor.
     //
     // SAFETY: Because main() already has references to the peripherals this is an unsafe
     // operation - but because no other code can run after the panic handler was called,
     // we know it is okay.
     let dp = unsafe { arduino_hal::Peripherals::steal() };
     let pins = arduino_hal::pins!(dp);
-    let mut led = pins.d11.into_output();
+    let mut vibro = pins.d3.into_output();
 
     info_infallible!("Firmware panic!");
 
@@ -260,7 +260,7 @@ fn panic(_info: &PanicInfo<'_>) -> ! {
     // }
 
     loop {
-        led.toggle();
+        vibro.toggle();
         arduino_hal::delay_ms(50);
     }
 }

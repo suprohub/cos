@@ -9,14 +9,14 @@ _Think different_
 
 **Rust-powered embedded calculator with joystick interface**
 
-A minimalistic calculator OS for Arduino Nano, using a single LED (with an vibration motor for feedback in the future) and a joystick for navigation. Ideal for people with disabilities (in progress), educational purposes, or just a unique computing experience.
+A minimalistic calculator OS for Arduino Nano, using a single vibration motor and a joystick for navigation. Ideal for people with disabilities, educational purposes, or just a unique computing experience.
 
 ## Features:
 - 🦀 Rust for comfort development and embedded safety
 - 🔢 Fixed-point arithmetic engine with rounding (supports numbers up to 2^64)
 - 🧮 Basic operations (+, -, ×, ÷) and advanced functions (√, x²)
 - 🕹️ Joystick-based navigation through virtual keyboard
-- 💡 LED-based numeric output display via blink patterns
+- 📳 Vibromotor-based numeric output display via blink patterns
 
 **Why is the joystick selected?**
 - Upgrade convenience: changing the behavior of the interface (keyboard layout, navigation logic) is implemented in the firmware — no need to reassemble the electronics, just the firmware.
@@ -25,7 +25,7 @@ A minimalistic calculator OS for Arduino Nano, using a single LED (with an vibra
 ## Hardware Requirements:
 - Arduino Nano (New Bootloader)
 - Joystick module HW-504 (VRx, VRy, SW)
-- LED indicator
+- Vibromotor
 - Maybe serial connection for debugging
 - And maybe more in future
 
