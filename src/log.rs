@@ -34,7 +34,6 @@ pub unsafe fn init(serial: Usart<USART0, Pin<Input, PD0>, Pin<Output, PD1>>) {
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)*) => {
-        #[allow(static_mut_refs)]
         // SAFETY: maybe safe? 💀
         let serial = unsafe { &mut (&mut *$crate::log::SERIAL.get()).assume_init_mut().0 };
         ufmt::uwriteln!(serial, $($arg)*).unwrap();
@@ -44,7 +43,6 @@ macro_rules! info {
 #[macro_export]
 macro_rules! info_infallible {
     ($($arg:tt)*) => {
-        #[allow(static_mut_refs)]
         // SAFETY: maybe safe? 💀
         let serial = unsafe { &mut (&mut *$crate::log::SERIAL.get()).assume_init_mut().0 };
         ufmt::uwriteln!(serial, $($arg)*).unwrap();
@@ -69,7 +67,6 @@ macro_rules! debug_infallible {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            #[allow(static_mut_refs)]
             // SAFETY: maybe safe? 💀
             let serial = unsafe { &mut (&mut *$crate::log::SERIAL.get()).assume_init_mut().0 };
             ufmt::uwriteln!(serial, $($arg)*).unwrap();
