@@ -54,7 +54,10 @@ Key types:
 - Digits - input numbers
 - Dot - enables fractional input mode
 - Equals - gives the result of a binary operation
-- Constants - insert constants (in development)
+- Constants - insert constants
+- D (Delete) - remove the last entered character
+- C (CE, Clear Entry) - clear the last entered number
+- R (Reset) - reset all numbers and the operator
 - Advanced functions - varies
 
 Advanced functions may include equation solving using neural networks, photomath, or remembering results of previous calculations, etc.

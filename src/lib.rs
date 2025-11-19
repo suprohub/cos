@@ -99,11 +99,9 @@ impl<const F: u8> Calculator<F> {
 
                 if self.frac {
                     if self.frac_digits > 0 {
-                        let scale = 10i64.pow((F - self.frac_digits) as u32);
-                        let int = v.0 / (scale * 10);
-                        let frac = (v.0 % (scale * 10)) / 10;
-
-                        v.0 = int * (scale * 10) + frac * scale;
+                        let digit_scale = 10i64.pow((F - self.frac_digits) as u32);
+                        let last_digit = (v.0 / digit_scale) % 10;
+                        v.0 -= last_digit * digit_scale;
                         self.frac_digits -= 1;
 
                         if self.frac_digits == 0 {
