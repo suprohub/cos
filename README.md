@@ -45,6 +45,7 @@ Virtual keyboard layout:
 Unary operators — - 4 5 6 × — Binary operators
                   x²1 2 3 +
                     . 0 = -
+                    C D R
                       |
              Advanced functions
 ```

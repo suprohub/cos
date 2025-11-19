@@ -11,7 +11,7 @@ use ufmt::derive::uDebug;
 ///
 /// Num stores a signed 64-bit integer that represents a fixed-point value
 /// with F decimal fractional digits. The underlying stored value is the
-/// integer representation scaled by 10^F. For example, `Num::`<`2>::from_int(3)`
+/// integer representation scaled by 10^F. For example, `Num::<2>::from_int(3)`
 /// stores 300 and represents 3.00.
 #[derive(Debug, uDebug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]

@@ -90,6 +90,49 @@ impl<const F: u8> Calculator<F> {
                 self.frac_digits = 0;
                 return Ok(Some(result));
             }
+            Key::Delete => {
+                let v = if self.op.is_none() {
+                    &mut self.a
+                } else {
+                    &mut self.b
+                };
+
+                if self.frac {
+                    if self.frac_digits > 0 {
+                        let scale = 10i64.pow((F - self.frac_digits) as u32);
+                        let int = v.0 / (scale * 10);
+                        let frac = (v.0 % (scale * 10)) / 10;
+
+                        v.0 = int * (scale * 10) + frac * scale;
+                        self.frac_digits -= 1;
+
+                        if self.frac_digits == 0 {
+                            self.frac = false;
+                        }
+                    } else {
+                        self.frac = false;
+                    }
+                } else {
+                    *v /= Num::from_int(10);
+                }
+            }
+            Key::Clear => {
+                *if self.op.is_none() {
+                    &mut self.a
+                } else {
+                    &mut self.b
+                } = Num::ZERO;
+
+                self.frac = false;
+                self.frac_digits = 0;
+            }
+            Key::Reset => {
+                self.a = Num::ZERO;
+                self.op = None;
+                self.b = Num::ZERO;
+                self.frac = false;
+                self.frac_digits = 0;
+            }
             _ => {}
         }
 
@@ -139,6 +182,9 @@ pub enum Key {
     UnOp(UnOp),
     Const(Const),
     Result,
+    Delete,
+    Clear,
+    Reset,
 
     Photomath,
     GPT5,

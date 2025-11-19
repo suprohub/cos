@@ -13,6 +13,6 @@ pub fn keyboard_layout() -> [[Key; 6]; 6] {
         [UnOp::Neg.into(),  Key::Num(4),          Key::Num(5),      Key::Num(6),     BinOp::Mul.into(), Key::None],
         [UnOp::Pow2.into(), Key::Num(1),          Key::Num(2),      Key::Num(3),     BinOp::Add.into(), Key::None],
         [Key::None,         Key::Dot,             Key::Num(0),      Key::Result,     BinOp::Sub.into(), Key::None],
-        [Key::None,         Key::None,            Key::None,        Key::None,       Key::None,         Key::None],
+        [Key::None,         Key::Clear,           Key::Delete,      Key::Reset,      Key::None,         Key::None],
     ]
 }

@@ -9,3 +9,39 @@ runner = "ravedude"
 build-std = ["core"]
 # Try this, but I dont think it will help, maybe try this in another time
 # build-std-features = ["optimize_for_size"]
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = [
+  # LLD linker
+  #
+  # You may need to install it:
+  #
+  # - Ubuntu: `sudo apt-get install lld clang`
+  # - Fedora: `sudo dnf install lld clang`
+  # - Arch: `sudo pacman -S lld clang`
+  # "-Clink-arg=-fuse-ld=lld",
+
+  # Mold linker
+  #
+  # You may need to install it:
+  #
+  # - Ubuntu: `sudo apt-get install mold clang`
+  # - Fedora: `sudo dnf install mold clang`
+  # - Arch: `sudo pacman -S mold clang`
+  "-Clink-arg=-fuse-ld=mold",
+
+  # Nightly
+  "-Zshare-generics=y",
+  "-Zthreads=15",
+]
+
+# Some systems may experience linker performance issues when running doc tests.
+# See https://github.com/bevyengine/bevy/issues/12207 for details.
+rustdocflags = [
+  # LLD linker
+  "-Clink-arg=-fuse-ld=lld",
+
+  # Mold linker
+  # "-Clink-arg=-fuse-ld=mold",
+]
