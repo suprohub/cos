@@ -90,7 +90,8 @@ _Думай иначе_
 по вашему выбору.
 
 ## Вклад в проект
-Перед внесением вклада в проект необходимо выполнить `cargo clippy --all-features --fix`, `cargo fmt` и `typos`.
+Перед внесением вклада в проект необходимо выполнить `cargo clippy --all-features --fix`, `typos`, `cargo fmt` и `cargo sort`.
 Для установки `typos` выполните `cargo binstall typos-cli` (или `cargo install typos-cli`).
+Для установки `cargo sort` выполните `cargo binstall cargo-sort` (или `cargo install cargo-sort`).
 
 Если вы явно не указали иное, любой намеренно представленный вами вклад для включения в работу, как определено в лицензии Apache-2.0, должен быть двойно лицензирован, как указано выше, без каких-либо дополнительных условий.

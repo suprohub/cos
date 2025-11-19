@@ -91,8 +91,9 @@ Licensed under either of
 at your option.
 
 ## Contribution
-Before contribution you need to run `cargo clippy --all-features --fix`, `cargo fmt` and `typos`.
+Before contribution you need to run `cargo clippy --all-features --fix`, `typos`, `cargo fmt` and `cargo sort`.
 For installing `typos` run `cargo binstall typos-cli` (or `cargo install typos-cli`).
+For installing `cargo sort` run `cargo binstall cargo-sort` (or `cargo install cargo-sort`).
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall
