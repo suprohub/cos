@@ -1,18 +1,19 @@
 #![no_std]
 #![no_main]
+// For logging
+#![feature(sync_unsafe_cell)]
 
 use core::panic::PanicInfo;
 
 use arduino_hal::{
     hal::port::PD3,
     port::{Pin, mode::Output},
-    prelude::*,
 };
 use cos::{
     Calculator, Key,
     config::{DEFAULT_POS, FRACTION_COUNT, keyboard_layout},
     debug, info_infallible,
-    log::{SERIAL, Serial},
+    log::{self},
     num::Num,
 };
 use heapless::Vec;
@@ -29,9 +30,7 @@ fn main() -> ! {
 
     // SAFETY: This is safe because arduino have only one thread.
     unsafe {
-        // TODO: Fix static_mut_refs lint. (idk how fix this)
-        #[expect(static_mut_refs)]
-        SERIAL.write(Serial(serial));
+        log::init(serial);
     }
 
     let mut vibro = pins.d3.into_output();

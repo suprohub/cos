@@ -1,4 +1,6 @@
 #![no_std]
+// For logging
+#![feature(sync_unsafe_cell)]
 
 use ufmt::derive::uDebug;
 

@@ -1,4 +1,4 @@
-use core::mem::MaybeUninit;
+use core::{cell::SyncUnsafeCell, mem::MaybeUninit};
 
 use arduino_hal::{
     Usart,
@@ -17,17 +17,26 @@ unsafe impl Send for Serial {}
 // SAFETY: ^
 unsafe impl Sync for Serial {}
 
-pub static mut SERIAL: MaybeUninit<Serial> = MaybeUninit::uninit();
+pub static SERIAL: SyncUnsafeCell<MaybeUninit<Serial>> = SyncUnsafeCell::new(MaybeUninit::uninit());
 
-// TODO: Fix static_mut_refs lint. (idk how fix this)
+/// Initialize the global serial logger
+///
+/// # Safety
+///
+/// Must be called exactly once before any logging macros are used.
+/// Must not be called concurrently with any other access to SERIAL.
+pub unsafe fn init(serial: Usart<USART0, Pin<Input, PD0>, Pin<Output, PD1>>) {
+    unsafe {
+        SERIAL.get().write(MaybeUninit::new(Serial(serial)));
+    }
+}
 
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)*) => {
         #[allow(static_mut_refs)]
         // SAFETY: maybe safe? 💀
-        let serial = unsafe { &mut (*$crate::log::SERIAL.as_mut_ptr()).0 };
-
+        let serial = unsafe { &mut (&mut *$crate::log::SERIAL.get()).assume_init_mut().0 };
         ufmt::uwriteln!(serial, $($arg)*).unwrap();
     };
 }
@@ -37,8 +46,8 @@ macro_rules! info_infallible {
     ($($arg:tt)*) => {
         #[allow(static_mut_refs)]
         // SAFETY: maybe safe? 💀
-        let serial = unsafe { &mut (*$crate::log::SERIAL.as_mut_ptr()).0 };
-        ufmt::uwriteln!(serial, $($arg)*).unwrap_infallible();
+        let serial = unsafe { &mut (&mut *$crate::log::SERIAL.get()).assume_init_mut().0 };
+        ufmt::uwriteln!(serial, $($arg)*).unwrap();
     };
 }
 
@@ -48,9 +57,8 @@ macro_rules! debug {
     ($($arg:tt)*) => {
         #[cfg(debug_assertions)]
         {
-            #[expect(static_mut_refs)]
             // SAFETY: maybe safe? 💀
-            let serial = unsafe { &mut (*$crate::log::SERIAL.as_mut_ptr()).0 };
+            let serial = unsafe { &mut (&mut *$crate::log::SERIAL.get()).assume_init_mut().0 };
             ufmt::uwriteln!(serial, $($arg)*).unwrap();
         }
     };
@@ -63,8 +71,8 @@ macro_rules! debug_infallible {
         {
             #[allow(static_mut_refs)]
             // SAFETY: maybe safe? 💀
-            let serial = unsafe { &mut (*$crate::log::SERIAL.as_mut_ptr()).0 };
-            ufmt::uwriteln!(serial, $($arg)*).unwrap_infallible();
+            let serial = unsafe { &mut (&mut *$crate::log::SERIAL.get()).assume_init_mut().0 };
+            ufmt::uwriteln!(serial, $($arg)*).unwrap();
         }
     };
 }
