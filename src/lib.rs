@@ -166,6 +166,7 @@ impl<const F: u8> Calculator<F> {
                 UnOp::Neg => -a,
                 UnOp::Sqrt => a.sqrt(),
                 UnOp::Pow2 => a * a,
+                UnOp::Factorial => a.factorial(),
             },
         };
 
@@ -230,6 +231,7 @@ pub enum UnOp {
     Neg,
     Sqrt,
     Pow2,
+    Factorial,
 }
 
 #[derive(uDebug, Clone, Copy, PartialEq, Eq)]

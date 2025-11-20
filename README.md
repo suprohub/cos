@@ -44,7 +44,7 @@ Virtual keyboard layout:
                   √ 7 8 9 ÷
 Unary operators — - 4 5 6 × — Binary operators
                   x²1 2 3 +
-                    . 0 = -
+                  ! . 0 = -
                     C D R
                       |
              Advanced functions
@@ -55,6 +55,7 @@ Key types:
 - Dot - enables fractional input mode
 - Equals - gives the result of a binary operation
 - Constants - insert constants
+- ! - Factorial
 - D (Delete) - remove the last entered character
 - C (CE, Clear Entry) - clear the last entered number
 - R (Reset) - reset all numbers and the operator
