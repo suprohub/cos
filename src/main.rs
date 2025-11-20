@@ -8,6 +8,7 @@ use core::panic::PanicInfo;
 use arduino_hal::{
     hal::port::PD3,
     port::{Pin, mode::Output},
+    prelude::*,
 };
 use cos::{
     Calculator, Key,

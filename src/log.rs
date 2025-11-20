@@ -45,7 +45,7 @@ macro_rules! info_infallible {
     ($($arg:tt)*) => {
         // SAFETY: maybe safe? 💀
         let serial = unsafe { &mut (&mut *$crate::log::SERIAL.get()).assume_init_mut().0 };
-        ufmt::uwriteln!(serial, $($arg)*).unwrap();
+        ufmt::uwriteln!(serial, $($arg)*).unwrap_infallible();
     };
 }
 
@@ -69,7 +69,7 @@ macro_rules! debug_infallible {
         {
             // SAFETY: maybe safe? 💀
             let serial = unsafe { &mut (&mut *$crate::log::SERIAL.get()).assume_init_mut().0 };
-            ufmt::uwriteln!(serial, $($arg)*).unwrap();
+            ufmt::uwriteln!(serial, $($arg)*).unwrap_infallible();
         }
     };
 }
