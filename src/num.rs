@@ -150,6 +150,103 @@ impl<const F: u8> Num<F> {
             .saturating_mul(Self::SCALE),
         )
     }
+
+    /// Common Taylor series implementation
+    #[inline]
+    pub fn taylor_series(
+        first_term: Self,
+        mut next_term: impl FnMut(Self, usize) -> Self,
+        max_iterations: Option<usize>,
+    ) -> Self {
+        let mut sum = first_term;
+        let mut term = first_term;
+        let mut n = 1;
+        let max_iterations = max_iterations.unwrap_or(if F < 4 {
+            6
+        } else if F < 8 {
+            10
+        } else {
+            15
+        });
+
+        while n < max_iterations && term.0.abs() > 10 {
+            term = next_term(term, n);
+            sum += term;
+            n += 1;
+        }
+
+        sum
+    }
+
+    /// Normalize angle to [-π, π] range
+    #[inline]
+    pub fn normalize_angle(self) -> Self {
+        let mut angle = self;
+
+        // Remove full rotations (2π)
+        if angle.0.abs() > Self::TAU.0 {
+            let rotations = angle / Self::TAU;
+            angle -= rotations * Self::TAU;
+        }
+
+        // Normalize to [-π, π]
+        if angle > Self::PI {
+            angle -= Self::TAU;
+        } else if angle < -Self::PI {
+            angle += Self::TAU;
+        }
+
+        angle
+    }
+
+    /// Calculate sine using Taylor series expansion
+    #[inline]
+    pub fn sin(self) -> Self {
+        let mut x = self.normalize_angle();
+
+        // For angles in [π/2, π] and [-π, -π/2], use sin(x) = sin(π - x)
+        if x > Self::PI / Self::from_int(2) {
+            x = Self::PI - x;
+        } else if x < -Self::PI / Self::from_int(2) {
+            x = -Self::PI - x;
+        }
+
+        let x2 = -x * x;
+
+        Self::taylor_series(
+            x,
+            |term, n| {
+                let n2 = (2 * n + 1) as i64;
+                let divisor = Self::from_int(n2 * (2 * n as i64 + 2));
+                term * x2 / divisor
+            },
+            None,
+        )
+    }
+
+    /// Calculate cosine using identity cos(x) = sin(π/2 - x)
+    #[inline]
+    pub fn cos(self) -> Self {
+        (Self::PI / Self::from_int(2) - self).sin()
+    }
+
+    /// Calculate tangent using identity tan(x) = sin(x) / cos(x)
+    #[inline]
+    pub fn tan(self) -> Self {
+        let sin_val = self.sin();
+        let cos_val = self.cos();
+
+        // Handle division by zero for angles where cos(x) = 0
+        if cos_val.0 == 0 {
+            if sin_val.0 >= 0 {
+                return Self::from_raw(i64::MAX);
+            } else {
+                return Self::from_raw(i64::MIN);
+            }
+        }
+
+        sin_val / cos_val
+    }
 }
 
 impl<const F: u8> Add for Num<F> {

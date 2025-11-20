@@ -38,24 +38,26 @@ Calculator control is intuitive:
 
 Virtual keyboard layout:
 ```
-                  Constants
-                      |
-                  τ γ π e φ √2
-                  √ 7 8 9 ÷
-Unary operators — - 4 5 6 × — Binary operators
-                  x²1 2 3 +
-                  ! . 0 = -
-                    C D R
-                      |
-             Advanced functions
+                      Constants
+                          |
+                  sin   φ τ √2
+                  cos   γ π e
+                  tan √ 7 8 9 ÷
+Unary operators —     - 4 5 6 × — Binary operators
+                      x²1 2 3 +
+                      x³. 0 = -
+                      ! C D R
+                          |
+                  Advanced functions
 ```
 
 Key types:
 - Digits - input numbers
 - Dot - enables fractional input mode
 - Equals - gives the result of a binary operation
-- Constants - insert constants
-- ! - Factorial
+- Unary operators - trigonometric functions (sin, cos, tan), square root (√), negation (-), square (x²), cube (x³), factorial (!)
+- Binary operators - arithmetic primitives
+- Constants - insert constants (φ, τ, √2, γ, π, e)
 - D (Delete) - remove the last entered character
 - C (CE, Clear Entry) - clear the last entered number
 - R (Reset) - reset all numbers and the operator
@@ -64,7 +66,6 @@ Key types:
 Advanced functions may include equation solving using neural networks, photomath, or remembering results of previous calculations, etc.
 
 A more specific layout is defined in the code (configuration will be improved in the future).
-
 
 ## Build Instructions
 1. Install prerequisites as described in the [`avr-hal` README] (`avr-gcc`, `avr-libc`, `avrdude`, [`ravedude`]).
