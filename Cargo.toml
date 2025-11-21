@@ -1,5 +1,11 @@
-[package]
-name = "cos"
+[workspace]
+resolver = "3"
+members = [
+    "cos",
+    "cos-num"
+]
+
+[workspace.package]
 version = "0.1.0"
 authors = ["suprohub <suprohub@gmail.com>"]
 edition = "2024"
@@ -224,23 +230,6 @@ while_float = "warn"
 # Very good but very experimental lint, anyway this lint really help
 cognitive_complexity = "warn"
 
-[lib]
-test = false
-doctest = false
-bench = false
-
-[[bin]]
-name = "cos"
-test = false
-doctest = false
-bench = false
-
-[dependencies]
-arduino-hal = { git = "https://github.com/rahix/avr-hal", rev = "6de651a", features = ["arduino-nano"] }
-avr-device = "0.7"
-embedded-hal = "1.0"
-heapless = { version = "0.9", features = ["nightly"] }
-ufmt = "0.2"
 
 # Configure the build for minimal size - AVRs have very little program memory
 # Also with turned off loop vectorization, because arduino often dont have simd

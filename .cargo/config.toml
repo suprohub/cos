@@ -1,16 +1,4 @@
-[build]
-target = "avr-none"
-rustflags = ["-C", "target-cpu=atmega328p"]
-
-[target.'cfg(target_arch = "avr")']
-runner = "ravedude"
-
-[unstable]
-build-std = ["core"]
-# Try this, but I dont think it will help, maybe try this in another time
-# build-std-features = ["optimize_for_size"]
-
-[target.x86_64-unknown-linux-gnu]
+[target.debug]
 linker = "clang"
 rustflags = [
   # LLD linker

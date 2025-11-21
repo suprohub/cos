@@ -15,8 +15,8 @@ use cos::{
     config::{DEFAULT_POS, FRACTION_COUNT, keyboard_layout},
     debug, info_infallible,
     log::{self},
-    num::Num,
 };
+use cos_num::Num;
 use heapless::Vec;
 
 #[expect(clippy::unwrap_used)]

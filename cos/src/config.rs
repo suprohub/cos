@@ -6,6 +6,7 @@ pub const FRACTION_COUNT: u8 = 2;
 pub const DEFAULT_POS: (u8, u8) = (2, 3);
 
 #[rustfmt::skip]
+#[must_use] 
 pub fn keyboard_layout() -> [[Key; 7]; 7] {
     [
         [UnOp::Sin.into(), Key::None,              Const::Phi.into(),    Const::Tau.into(), Const::Sqrt2.into(), Key::None,         Key::None],

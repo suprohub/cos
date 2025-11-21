@@ -2,13 +2,11 @@
 // For logging
 #![feature(sync_unsafe_cell)]
 
+use cos_num::Num;
 use ufmt::derive::uDebug;
-
-use crate::num::Num;
 
 pub mod config;
 pub mod log;
-pub mod num;
 
 pub struct Calculator<const F: u8> {
     a: Num<F>,
@@ -25,6 +23,7 @@ impl<const F: u8> Default for Calculator<F> {
 }
 
 impl<const F: u8> Calculator<F> {
+    #[must_use] 
     pub const fn new() -> Self {
         Self {
             a: Num::ZERO,

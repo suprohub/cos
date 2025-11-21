@@ -1,0 +1,28 @@
+[package]
+name = "cos"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "cos"
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+cos-num = { path = "../cos-num", default-features = false }
+arduino-hal = { git = "https://github.com/rahix/avr-hal", rev = "6de651a", features = ["arduino-nano"] }
+avr-device = "0.7"
+embedded-hal = "1.0"
+heapless = { version = "0.9", features = ["nightly"] }
+ufmt = "0.2"
