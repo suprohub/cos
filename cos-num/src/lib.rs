@@ -17,9 +17,9 @@ use ufmt::derive::uDebug;
 /// stores 300 and represents 3.00.
 #[derive(Debug, uDebug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
-pub struct Num<const F: u8>(pub i64);
+pub struct Num<const F: u8, const TF: u8>(pub i64);
 
-impl<const F: u8> Num<F> {
+impl<const F: u8, const TF: u8> Num<F, TF> {
     /// Current scale of frac
     pub const SCALE: i64 = {
         let mut s: i64 = 1;
@@ -81,35 +81,11 @@ impl<const F: u8> Num<F> {
         Self(n.saturating_mul(Self::SCALE))
     }
 
-    /// Create from f32 floating point value
-    #[inline]
-    #[must_use]
-    pub const fn from_f32(value: f32) -> Self {
-        // Handle special cases
-        assert!(!value.is_nan(), "Cannot convert NaN to fixed-point number");
-
-        if value.is_infinite() {
-            if value.is_sign_positive() {
-                return Self(i64::MAX);
-            } else {
-                return Self(i64::MIN);
-            }
-        }
-
-        // Scale and round to nearest integer
-        let scaled = value * (Self::SCALE as f32);
-
-        // Handle overflow/underflow
-        if scaled > i64::MAX as f32 {
-            Self(i64::MAX)
-        } else if scaled < i64::MIN as f32 {
-            Self(i64::MIN)
-        } else {
-            Self(scaled.round() as i64)
-        }
-    }
-
     /// Create from f64 floating point value
+    /// Only f64 present because f32 is very lossy
+    ///
+    /// # Panics
+    /// Will panic if value is nan
     #[inline]
     #[must_use]
     pub const fn from_f64(value: f64) -> Self {
@@ -144,8 +120,15 @@ impl<const F: u8> Num<F> {
         if F == 0 {
             Self(int)
         } else {
-            // 19 safe - its maximum of i64
-            Self(int.saturating_mul(Self::SCALE) + frac / 10i64.pow(19 - F as u32))
+            let divisor = 10i64.pow(19 - F as u32);
+
+            let rounded_frac = if frac >= 0 {
+                (frac + divisor / 2) / divisor
+            } else {
+                (frac - divisor / 2) / divisor
+            };
+
+            Self(int.saturating_mul(Self::SCALE) + rounded_frac)
         }
     }
 
@@ -156,6 +139,9 @@ impl<const F: u8> Num<F> {
     }
 
     /// Get square root of self
+    ///
+    /// # Panics
+    /// Will panic if self is negative
     #[must_use]
     pub const fn sqrt(self) -> Self {
         // Why i dont use `Self(self.0.wrapping_mul(Self::SCALE).isqrt())`?
@@ -190,6 +176,10 @@ impl<const F: u8> Num<F> {
     }
 
     /// Calculate factorial (n!)
+    ///
+    /// # Panics
+    ///
+    /// Will panic if self is negative or self > 20 or self isnt natural number
     #[inline]
     #[must_use]
     pub const fn factorial(self) -> Self {
@@ -226,26 +216,22 @@ impl<const F: u8> Num<F> {
 
     /// Common Taylor series implementation
     #[inline]
+    #[must_use]
     pub fn taylor_series(
-        first_term: Self,
-        mut next_term: impl FnMut(Self, usize) -> Self,
-        max_iterations: Option<usize>,
-    ) -> Self {
-        let mut sum = first_term;
-        let mut term = first_term;
-        let mut n = 1;
-        let max_iterations = max_iterations.unwrap_or(if F < 4 {
-            8
-        } else if F < 8 {
-            16
-        } else {
-            32
-        });
+        first: Num<TF, TF>,
+        acc: usize,
+        mut next: impl FnMut(Num<TF, TF>, usize) -> (Num<TF, TF>, Num<TF, TF>),
+    ) -> Num<TF, TF> {
+        let mut sum = first;
+        let mut dividend = first;
+        let mut result;
+        let mut n = 1 + acc;
+        let max_iterations = 15;
 
-        while n < max_iterations && term.0.abs() > 10 {
-            term = next_term(term, n);
-            sum += term;
-            n += 1;
+        while n < max_iterations {
+            (dividend, result) = next(dividend, n);
+            sum += result;
+            n += acc;
         }
 
         sum
@@ -277,26 +263,27 @@ impl<const F: u8> Num<F> {
     #[inline]
     #[must_use]
     pub fn sin(self) -> Self {
-        let mut x = self.normalize_angle();
+        let mut x = self.increase_frac::<TF>().normalize_angle();
 
         // For angles in [π/2, π] and [-π, -π/2], use sin(x) = sin(π - x)
-        if x > Self::PI / Self::from_int(2) {
-            x = Self::PI - x;
-        } else if x < -Self::PI / Self::from_int(2) {
-            x = -Self::PI - x;
+        if x > Num::<TF, TF>::PI / Num::<TF, TF>::from_int(2) {
+            x = Num::<TF, TF>::PI - x;
+        } else if x < -Num::<TF, TF>::PI / Num::<TF, TF>::from_int(2) {
+            x = -Num::<TF, TF>::PI - x;
         }
 
-        let x2 = -x * x;
+        let x2 = x * x;
+        let mut neg = false;
 
-        Self::taylor_series(
-            x,
-            |term, n| {
-                let n2 = (2 * n + 1) as i64;
-                let divisor = Self::from_int(n2 * (2 * n as i64 + 2));
-                term * x2 / divisor
-            },
-            None,
-        )
+        Num::<TF, TF>::taylor_series(x, 2, |dividend, n| {
+            neg = !neg;
+            let i = dividend * x2;
+            (
+                i,
+                if neg { -i } else { i } / Num::from_int(n as i64).factorial(),
+            )
+        })
+        .decrease_frac::<F>()
     }
 
     /// Calculate cosine using identity cos(x) = sin(π/2 - x)
@@ -324,36 +311,22 @@ impl<const F: u8> Num<F> {
     #[inline]
     #[must_use]
     pub fn sinh(self) -> Self {
-        let x = self;
+        let x = self.increase_frac::<TF>();
         let x2 = x * x;
 
-        Self::taylor_series(
-            x,
-            |term, n| {
-                let n2 = (2 * n + 1) as i64;
-                let divisor = Self::from_int(n2 * (2 * n as i64 + 2));
-                term * x2 / divisor
-            },
-            None,
-        )
+        Num::<TF, TF>::taylor_series(x, 2, |dividend, n| {
+            let i = dividend * x2;
+            (i, i / Num::from_int(n as i64).factorial())
+        })
+        .decrease_frac::<F>()
     }
 
-    /// Calculate hyperbolic cosine using Taylor series expansion
+    /// Calculate hyperbolic cosine using identity cosh(x) = sqrt(1 + sinh²(x))
     #[inline]
     #[must_use]
     pub fn cosh(self) -> Self {
-        let x = self;
-        let x2 = x * x;
-
-        Self::taylor_series(
-            Self::ONE,
-            |term, n| {
-                let n2 = (2 * n) as i64;
-                let divisor = Self::from_int(n2 * (2 * n as i64 - 1));
-                term * x2 / divisor
-            },
-            None,
-        )
+        let sinh = self.sinh();
+        (sinh * sinh + Self::ONE).sqrt()
     }
 
     /// Calculate hyperbolic tangent using identity tanh(x) = sinh(x) / cosh(x)
@@ -372,52 +345,40 @@ impl<const F: u8> Num<F> {
 
     /// Calculate natural logarithm using Taylor series expansion
     ///
-    /// Uses the identity: ln(x) = 2 * [ (x-1)/(x+1) + (1/3)*((x-1)/(x+1))^3 + (1/5)*((x-1)/(x+1))^5 + ... ]
-    /// This series converges quickly for x close to 1.
-    /// For values far from 1, uses reduction to range [0.5, 2] using identities.
+    /// # Panics
+    /// Will panic if self is non-positive number
     #[inline]
     #[must_use]
     pub fn ln(self) -> Self {
-        assert!(self > Self::ZERO, "ln of non-positive number");
-        if self == Self::ONE {
-            return Self::ZERO;
+        assert!(self.0 > 0, "ln of non-positive number");
+
+        // Reduce the argument to range [0.5, 2] by powers of 2
+        let mut n = 0;
+        let mut value = self.increase_frac::<TF>();
+        let two = Num::<TF, TF>::from_int(2);
+
+        while value > two {
+            value /= two;
+            n += 1;
         }
 
-        let mut x = self;
-        let mut result = Self::ZERO;
-
-        // Reduce x to range [0.5, 2] using identities
-        // For x > 2: ln(x) = ln(x/2) + ln(2)
-        // For x < 0.5: ln(x) = ln(2x) - ln(2)
-        while x > Self::from_int(2) {
-            x /= Self::from_int(2);
-            result += Self::LN_2;
+        while value < Num::<TF, TF>::ONE {
+            value *= two;
+            n -= 1;
         }
 
-        while x < Self::from_f32(0.5) {
-            // 0.5
-            x *= Self::from_int(2);
-            result -= Self::LN_2;
-        }
+        // ln(x) = 2 * artanh((x-1)/(x+1))
+        let x = (value - Num::<TF, TF>::ONE) / (value + Num::<TF, TF>::ONE);
+        let x2 = x * x;
 
-        // Now x is in [0.5, 2], use Taylor series
-        let y = (x - Self::ONE) / (x + Self::ONE);
-        let y2 = y * y;
+        let mut neg = false;
+        let result = Num::<TF, TF>::taylor_series(x, 2, |dividend, n| {
+            neg = !neg;
+            let i = dividend * x2;
+            (i, i / Num::from_int(n as i64))
+        });
 
-        Self::taylor_series(
-            Self::from_int(2) * y,
-            |term, n| {
-                let coefficient = Self::from_int(2 * (2 * n as i64 + 3));
-                term * y2 * coefficient / coefficient
-            },
-            Some(if F < 4 {
-                8
-            } else if F < 8 {
-                16
-            } else {
-                32
-            }),
-        ) + result
+        (result * two + Num::<TF, TF>::from_int(n) * Num::<TF, TF>::LN_2).decrease_frac::<F>()
     }
 
     /// Calculate area hyperbolic sine using logarithmic identity: arsinh(x) = ln(x + √(x² + 1))
@@ -447,9 +408,65 @@ impl<const F: u8> Num<F> {
     pub fn arcctgh(self) -> Self {
         ((self + Self::ONE) / (self - Self::ONE)).ln() / Self::from_int(2)
     }
+
+    /// Increase precision to a higher number of fractional digits
+    ///
+    /// # Examples
+    /// ```
+    /// use cos_num::Num;
+    ///
+    /// let num = Num::<2, 4>::from_f64(3.14); // 3.14 with 2 fractional digits
+    /// let increased = num.increase_frac::<4>(); // becomes 3.1400 with 4 fractional digits
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn increase_frac<const NEW_F: u8>(self) -> Num<NEW_F, TF> {
+        assert!(NEW_F >= F, "NEW_F must be >= F when increasing precision");
+
+        if NEW_F == F {
+            // Same precision, just convert
+            Num::<NEW_F, TF>::from_raw(self.0)
+        } else {
+            let factor = 10i64.pow((NEW_F - F) as u32);
+            let new_raw = self.0.saturating_mul(factor);
+            Num::<NEW_F, TF>::from_raw(new_raw)
+        }
+    }
+
+    /// Decrease precision to a lower number of fractional digits with rounding
+    ///
+    /// # Examples
+    /// ```
+    /// use cos_num::Num;
+    ///
+    /// let num = Num::<4, 4>::from_f64(3.1416); // 3.1416 with 4 fractional digits
+    /// let decreased = num.decrease_frac::<2>(); // becomes 3.14 with 2 fractional digits
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn decrease_frac<const NEW_F: u8>(self) -> Num<NEW_F, TF> {
+        assert!(NEW_F <= F, "NEW_F must be <= F when decreasing precision");
+        println!("old: {self:?}");
+
+        if NEW_F == F {
+            // Same precision, just convert
+            Num::<NEW_F, TF>::from_raw(self.0)
+        } else {
+            let divisor = 10i64.pow((F - NEW_F) as u32);
+
+            // Round to nearest with half-up rounding
+            let new_raw = if self.0 >= 0 {
+                (self.0 + divisor / 2) / divisor
+            } else {
+                (self.0 - divisor / 2) / divisor
+            };
+
+            Num::<NEW_F, TF>::from_raw(new_raw)
+        }
+    }
 }
 
-impl<const F: u8> Add for Num<F> {
+impl<const F: u8, const TF: u8> Add for Num<F, TF> {
     type Output = Self;
 
     #[inline]
@@ -458,7 +475,7 @@ impl<const F: u8> Add for Num<F> {
     }
 }
 
-impl<const F: u8> Sub for Num<F> {
+impl<const F: u8, const TF: u8> Sub for Num<F, TF> {
     type Output = Self;
 
     #[inline]
@@ -467,7 +484,7 @@ impl<const F: u8> Sub for Num<F> {
     }
 }
 
-impl<const F: u8> Neg for Num<F> {
+impl<const F: u8, const TF: u8> Neg for Num<F, TF> {
     type Output = Self;
 
     #[inline]
@@ -476,7 +493,7 @@ impl<const F: u8> Neg for Num<F> {
     }
 }
 
-impl<const F: u8> Mul for Num<F> {
+impl<const F: u8, const TF: u8> Mul for Num<F, TF> {
     type Output = Self;
 
     #[inline]
@@ -495,7 +512,7 @@ impl<const F: u8> Mul for Num<F> {
     }
 }
 
-impl<const F: u8> Div for Num<F> {
+impl<const F: u8, const TF: u8> Div for Num<F, TF> {
     type Output = Self;
 
     #[inline]
@@ -517,7 +534,7 @@ impl<const F: u8> Div for Num<F> {
     }
 }
 
-impl<const F: u8> Rem for Num<F> {
+impl<const F: u8, const TF: u8> Rem for Num<F, TF> {
     type Output = Self;
 
     #[inline]
@@ -526,70 +543,70 @@ impl<const F: u8> Rem for Num<F> {
     }
 }
 
-impl<const F: u8> AddAssign for Num<F> {
+impl<const F: u8, const TF: u8> AddAssign for Num<F, TF> {
     #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
-impl<const F: u8> SubAssign for Num<F> {
+impl<const F: u8, const TF: u8> SubAssign for Num<F, TF> {
     #[inline]
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
 
-impl<const F: u8> MulAssign for Num<F> {
+impl<const F: u8, const TF: u8> MulAssign for Num<F, TF> {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
     }
 }
 
-impl<const F: u8> DivAssign for Num<F> {
+impl<const F: u8, const TF: u8> DivAssign for Num<F, TF> {
     #[inline]
     fn div_assign(&mut self, rhs: Self) {
         *self = *self / rhs;
     }
 }
 
-impl<const F: u8> RemAssign for Num<F> {
+impl<const F: u8, const TF: u8> RemAssign for Num<F, TF> {
     #[inline]
     fn rem_assign(&mut self, rhs: Self) {
         *self = *self % rhs;
     }
 }
 
-impl<const F: u8> AsRef<i64> for Num<F> {
+impl<const F: u8, const TF: u8> AsRef<i64> for Num<F, TF> {
     #[inline]
     fn as_ref(&self) -> &i64 {
         &self.0
     }
 }
 
-impl<const F: u8> AsMut<i64> for Num<F> {
+impl<const F: u8, const TF: u8> AsMut<i64> for Num<F, TF> {
     #[inline]
     fn as_mut(&mut self) -> &mut i64 {
         &mut self.0
     }
 }
 
-impl<const F: u8> Borrow<i64> for Num<F> {
+impl<const F: u8, const TF: u8> Borrow<i64> for Num<F, TF> {
     #[inline]
     fn borrow(&self) -> &i64 {
         &self.0
     }
 }
 
-impl<const F: u8> BorrowMut<i64> for Num<F> {
+impl<const F: u8, const TF: u8> BorrowMut<i64> for Num<F, TF> {
     #[inline]
     fn borrow_mut(&mut self) -> &mut i64 {
         &mut self.0
     }
 }
 
-impl<const F: u8> Deref for Num<F> {
+impl<const F: u8, const TF: u8> Deref for Num<F, TF> {
     type Target = i64;
 
     #[inline]
@@ -598,7 +615,7 @@ impl<const F: u8> Deref for Num<F> {
     }
 }
 
-impl<const F: u8> DerefMut for Num<F> {
+impl<const F: u8, const TF: u8> DerefMut for Num<F, TF> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
@@ -607,12 +624,12 @@ impl<const F: u8> DerefMut for Num<F> {
 
 #[cfg(test)]
 mod tests {
-    use core::{f32, f64};
+    use core::f64;
 
     use super::Num;
 
     // Test with 4 decimal places for good precision
-    type TestNum = Num<4>;
+    type TestNum = Num<6, 8>;
 
     #[test]
     fn test_basic_operations() {
@@ -622,8 +639,8 @@ mod tests {
             TestNum::from_int(5)
         );
         assert_eq!(
-            TestNum::from_f32(1.5) + TestNum::from_f32(2.25),
-            TestNum::from_f32(3.75)
+            TestNum::from_f64(1.5) + TestNum::from_f64(2.25),
+            TestNum::from_f64(3.75)
         );
 
         // Subtraction
@@ -632,8 +649,8 @@ mod tests {
             TestNum::from_int(2)
         );
         assert_eq!(
-            TestNum::from_f32(4.5) - TestNum::from_f32(1.25),
-            TestNum::from_f32(3.25)
+            TestNum::from_f64(4.5) - TestNum::from_f64(1.25),
+            TestNum::from_f64(3.25)
         );
 
         // Multiplication
@@ -642,8 +659,8 @@ mod tests {
             TestNum::from_int(12)
         );
         assert_eq!(
-            TestNum::from_f32(2.5) * TestNum::from_f32(4.0),
-            TestNum::from_f32(10.0)
+            TestNum::from_f64(2.5) * TestNum::from_f64(4.0),
+            TestNum::from_f64(10.0)
         );
 
         // Division
@@ -652,8 +669,8 @@ mod tests {
             TestNum::from_int(5)
         );
         assert_eq!(
-            TestNum::from_f32(7.5) / TestNum::from_f32(2.5),
-            TestNum::from_f32(3.0)
+            TestNum::from_f64(7.5) / TestNum::from_f64(2.5),
+            TestNum::from_f64(3.0)
         );
 
         // Remainder
@@ -662,22 +679,22 @@ mod tests {
             TestNum::from_int(1)
         );
         assert_eq!(
-            TestNum::from_f32(5.7) % TestNum::from_f32(2.2),
-            TestNum::from_f32(1.3)
+            TestNum::from_f64(5.7) % TestNum::from_f64(2.2),
+            TestNum::from_f64(1.3)
         );
 
         // Negation
         assert_eq!(-TestNum::from_int(5), TestNum::from_int(-5));
         assert_eq!(
-            -TestNum::from_f32(f32::consts::PI),
-            TestNum::from_f32(-f32::consts::PI)
+            -TestNum::from_f64(f64::consts::PI),
+            TestNum::from_f64(-f64::consts::PI)
         );
 
         // Absolute value
         assert_eq!(TestNum::from_int(-5).abs(), TestNum::from_int(5));
         assert_eq!(
-            TestNum::from_f32(-f32::consts::PI).abs(),
-            TestNum::from_f32(f32::consts::PI)
+            TestNum::from_f64(-f64::consts::PI).abs(),
+            TestNum::from_f64(f64::consts::PI)
         );
     }
 
@@ -706,15 +723,15 @@ mod tests {
         // Equality
         assert_eq!(TestNum::from_int(5), TestNum::from_int(5));
         assert_eq!(
-            TestNum::from_f32(f32::consts::PI),
-            TestNum::from_f32(f32::consts::PI)
+            TestNum::from_f64(f64::consts::PI),
+            TestNum::from_f64(f64::consts::PI)
         );
 
         // Ordering
         assert!(TestNum::from_int(5) > TestNum::from_int(3));
         assert!(TestNum::from_int(3) < TestNum::from_int(5));
-        assert!(TestNum::from_f32(2.5) >= TestNum::from_f32(2.5));
-        assert!(TestNum::from_f32(1.8) <= TestNum::from_f32(1.8));
+        assert!(TestNum::from_f64(2.5) >= TestNum::from_f64(2.5));
+        assert!(TestNum::from_f64(1.8) <= TestNum::from_f64(1.8));
     }
 
     #[test]
@@ -723,16 +740,16 @@ mod tests {
         assert_eq!(TestNum::from_raw(12345).raw(), 12345);
 
         // From integer
-        assert_eq!(TestNum::from_int(42).raw(), 420000);
-
-        // From f32
-        assert_eq!(TestNum::from_f32(f32::consts::PI).raw(), 31416);
+        assert_eq!(TestNum::from_int(42).raw(), 420000000);
 
         // From f64
-        assert_eq!(TestNum::from_f64(f64::consts::E).raw(), 27183);
+        assert_eq!(TestNum::from_f64(f64::consts::E).raw(), 27182818);
 
         // From two longs
-        assert_eq!(TestNum::from_2_longs(1, 2345000000000000000).raw(), 12345);
+        assert_eq!(
+            TestNum::from_2_longs(1, 2345000000000000000).raw(),
+            12345000
+        );
     }
 
     #[test]
@@ -743,15 +760,15 @@ mod tests {
         assert_eq!((TestNum::PI / TestNum::from_int(2)).sin(), TestNum::ONE);
         assert_eq!(
             (TestNum::PI / TestNum::from_int(6)).sin(),
-            TestNum::from_f32(0.5)
+            TestNum::from_f64(0.5)
         ); // 30°
         assert_eq!(
             (TestNum::PI / TestNum::from_int(4)).sin(),
-            TestNum::from_f32(f32::consts::FRAC_1_SQRT_2)
+            TestNum::from_f64(f64::consts::FRAC_1_SQRT_2)
         ); // 45°
         assert_eq!(
             (TestNum::PI / TestNum::from_int(3)).sin(),
-            TestNum::from_f32(0.8660)
+            TestNum::from_f64(0.866026)
         ); // 60°
 
         // Test cosine function with common angles
@@ -760,15 +777,15 @@ mod tests {
         assert_eq!((TestNum::PI / TestNum::from_int(2)).cos(), TestNum::ZERO);
         assert_eq!(
             (TestNum::PI / TestNum::from_int(3)).cos(),
-            TestNum::from_f32(0.5)
+            TestNum::from_f64(0.5)
         ); // 60°
         assert_eq!(
             (TestNum::PI / TestNum::from_int(4)).cos(),
-            TestNum::from_f32(f32::consts::FRAC_1_SQRT_2)
+            TestNum::from_f64(f64::consts::FRAC_1_SQRT_2)
         ); // 45°
         assert_eq!(
             (TestNum::PI / TestNum::from_int(6)).cos(),
-            TestNum::from_f32(0.8660)
+            TestNum::from_f64(0.866026)
         ); // 30°
 
         // Test tangent function
@@ -776,22 +793,22 @@ mod tests {
         assert_eq!((TestNum::PI / TestNum::from_int(4)).tan(), TestNum::ONE); // 45°
         assert_eq!(
             (TestNum::PI / TestNum::from_int(6)).tan(),
-            TestNum::from_f32(0.5774)
+            TestNum::from_f64(0.577350)
         ); // 30°
         assert_eq!(
             (TestNum::PI / TestNum::from_int(3)).tan(),
-            TestNum::from_f32(1.7321)
+            TestNum::from_f64(1.732052)
         ); // 60°
 
         // Test cotangent function
         assert_eq!((TestNum::PI / TestNum::from_int(4)).ctg(), TestNum::ONE); // 45°
         assert_eq!(
             (TestNum::PI / TestNum::from_int(6)).ctg(),
-            TestNum::from_f32(1.7321)
+            TestNum::from_f64(1.732052)
         ); // 30°
         assert_eq!(
             (TestNum::PI / TestNum::from_int(3)).ctg(),
-            TestNum::from_f32(0.5774)
+            TestNum::from_f64(0.577350)
         ); // 60°
 
         // Test angle normalization
@@ -818,26 +835,26 @@ mod tests {
     fn test_hyperbolic_functions() {
         // Test hyperbolic sine
         assert_eq!(TestNum::ZERO.sinh(), TestNum::ZERO);
-        assert_eq!(TestNum::ONE.sinh(), TestNum::from_f32(1.1752));
-        assert_eq!(TestNum::from_int(2).sinh(), TestNum::from_f32(3.6269));
-        assert_eq!(TestNum::from_f32(-1.0).sinh(), TestNum::from_f32(-1.1752));
+        assert_eq!(TestNum::ONE.sinh(), TestNum::from_f64(1.1752));
+        assert_eq!(TestNum::from_int(2).sinh(), TestNum::from_f64(3.6269));
+        assert_eq!(TestNum::from_f64(-1.0).sinh(), TestNum::from_f64(-1.1752));
 
         // Test hyperbolic cosine
         assert_eq!(TestNum::ZERO.cosh(), TestNum::ONE);
-        assert_eq!(TestNum::ONE.cosh(), TestNum::from_f32(1.5431));
-        assert_eq!(TestNum::from_int(2).cosh(), TestNum::from_f32(3.7622));
-        assert_eq!(TestNum::from_f32(-1.0).cosh(), TestNum::from_f32(1.5431)); // cosh is even function
+        assert_eq!(TestNum::ONE.cosh(), TestNum::from_f64(1.5431));
+        assert_eq!(TestNum::from_int(2).cosh(), TestNum::from_f64(3.7622));
+        assert_eq!(TestNum::from_f64(-1.0).cosh(), TestNum::from_f64(1.5431)); // cosh is even function
 
         // Test hyperbolic tangent
         assert_eq!(TestNum::ZERO.tanh(), TestNum::ZERO);
-        assert_eq!(TestNum::ONE.tanh(), TestNum::from_f32(0.7616));
-        assert_eq!(TestNum::from_int(2).tanh(), TestNum::from_f32(0.9640));
-        assert_eq!(TestNum::from_f32(-1.0).tanh(), TestNum::from_f32(-0.7616));
+        assert_eq!(TestNum::ONE.tanh(), TestNum::from_f64(0.7616));
+        assert_eq!(TestNum::from_int(2).tanh(), TestNum::from_f64(0.9640));
+        assert_eq!(TestNum::from_f64(-1.0).tanh(), TestNum::from_f64(-0.7616));
 
         // Test hyperbolic cotangent
-        assert_eq!(TestNum::ONE.ctgh(), TestNum::from_f32(1.3130));
-        assert_eq!(TestNum::from_int(2).ctgh(), TestNum::from_f32(1.0373));
-        assert_eq!(TestNum::from_f32(-1.0).ctgh(), TestNum::from_f32(-1.3130));
+        assert_eq!(TestNum::ONE.ctgh(), TestNum::from_f64(1.3130));
+        assert_eq!(TestNum::from_int(2).ctgh(), TestNum::from_f64(1.0373));
+        assert_eq!(TestNum::from_f64(-1.0).ctgh(), TestNum::from_f64(-1.3130));
     }
 
     #[test]
@@ -848,35 +865,35 @@ mod tests {
         assert_eq!(TestNum::from_int(2).ln(), TestNum::LN_2);
         assert_eq!(
             TestNum::from_int(10).ln(),
-            TestNum::from_f32(f32::consts::LN_10)
+            TestNum::from_f64(f64::consts::LN_10)
         );
         assert_eq!(
-            TestNum::from_f32(0.5).ln(),
-            TestNum::from_f32(f32::consts::LN_2)
+            TestNum::from_f64(0.5).ln(),
+            TestNum::from_f64(f64::consts::LN_2)
         );
 
         // Test inverse hyperbolic sine
         assert_eq!(TestNum::ZERO.arcsinh(), TestNum::ZERO);
-        assert_eq!(TestNum::ONE.arcsinh(), TestNum::from_f32(0.8814));
-        assert_eq!(TestNum::from_int(2).arcsinh(), TestNum::from_f32(1.4436));
+        assert_eq!(TestNum::ONE.arcsinh(), TestNum::from_f64(0.8814));
+        assert_eq!(TestNum::from_int(2).arcsinh(), TestNum::from_f64(1.4436));
 
         // Test inverse hyperbolic cosine
         assert_eq!(TestNum::ONE.arccosh(), TestNum::ZERO);
-        assert_eq!(TestNum::from_int(2).arccosh(), TestNum::from_f32(1.3170));
-        assert_eq!(TestNum::from_int(3).arccosh(), TestNum::from_f32(1.7627));
+        assert_eq!(TestNum::from_int(2).arccosh(), TestNum::from_f64(1.3170));
+        assert_eq!(TestNum::from_int(3).arccosh(), TestNum::from_f64(1.7627));
 
         // Test inverse hyperbolic tangent
         assert_eq!(TestNum::ZERO.arctanh(), TestNum::ZERO);
-        assert_eq!(TestNum::from_f32(0.5).arctanh(), TestNum::from_f32(0.5493));
+        assert_eq!(TestNum::from_f64(0.5).arctanh(), TestNum::from_f64(0.5493));
         assert_eq!(
-            TestNum::from_f32(-0.5).arctanh(),
-            TestNum::from_f32(-0.5493)
+            TestNum::from_f64(-0.5).arctanh(),
+            TestNum::from_f64(-0.5493)
         );
 
         // Test inverse hyperbolic cotangent
-        assert_eq!(TestNum::from_int(2).arcctgh(), TestNum::from_f32(0.5493));
-        assert_eq!(TestNum::from_int(3).arcctgh(), TestNum::from_f32(0.3466));
-        assert_eq!(TestNum::from_int(-2).arcctgh(), TestNum::from_f32(-0.5493));
+        assert_eq!(TestNum::from_int(2).arcctgh(), TestNum::from_f64(0.5493));
+        assert_eq!(TestNum::from_int(3).arcctgh(), TestNum::from_f64(0.3466));
+        assert_eq!(TestNum::from_int(-2).arcctgh(), TestNum::from_f64(-0.5493));
     }
 
     #[test]
@@ -891,10 +908,10 @@ mod tests {
 
         // Test square root with non-perfect squares
         assert_eq!(TestNum::from_int(2).sqrt(), TestNum::SQRT_2);
-        assert_eq!(TestNum::from_int(3).sqrt(), TestNum::from_f32(1.7321));
-        assert_eq!(TestNum::from_int(5).sqrt(), TestNum::from_f32(2.2361));
-        assert_eq!(TestNum::from_f32(0.25).sqrt(), TestNum::from_f32(0.5));
-        assert_eq!(TestNum::from_f32(1.44).sqrt(), TestNum::from_f32(1.2));
+        assert_eq!(TestNum::from_int(3).sqrt(), TestNum::from_f64(1.7320508));
+        assert_eq!(TestNum::from_int(5).sqrt(), TestNum::from_f64(2.236068));
+        assert_eq!(TestNum::from_f64(0.25).sqrt(), TestNum::from_f64(0.5));
+        assert_eq!(TestNum::from_f64(1.44).sqrt(), TestNum::from_f64(1.2));
 
         // Test factorial
         assert_eq!(TestNum::ZERO.factorial(), TestNum::ONE);
@@ -907,72 +924,33 @@ mod tests {
     }
 
     #[test]
-    fn test_deref_and_borrow() {
-        let mut num = TestNum::from_int(42);
-
-        // Test deref
-        assert_eq!(*num, 420000);
-
-        // Test deref mut
-        *num += 1000;
-        assert_eq!(*num, 421000);
-
-        // Test as_ref and as_mut
-        assert_eq!(*num.as_ref(), 421000);
-        *num.as_mut() += 1000;
-        assert_eq!(*num, 422000);
-
-        // Test borrow
-        /*let borrowed: &i64 = num.borrow();
-        assert_eq!(*borrowed, 422000);
-
-        // Test borrow_mut
-        *num.borrow_mut() += 1000;
-        assert_eq!(*num, 423000);*/
-    }
-
-    #[test]
     #[should_panic(expected = "division by zero")]
     fn test_division_by_zero() {
-        let _ = TestNum::from_int(1) / TestNum::ZERO;
+        let _: TestNum = TestNum::from_int(1) / TestNum::ZERO;
     }
 
     #[test]
     #[should_panic(expected = "sqrt of negative number")]
     fn test_sqrt_negative() {
-        let _ = TestNum::from_int(-1).sqrt();
+        let _: TestNum = TestNum::from_int(-1).sqrt();
     }
 
     #[test]
     #[should_panic(expected = "Factorial of negative number")]
     fn test_factorial_negative() {
-        let _ = TestNum::from_int(-1).factorial();
+        let _: TestNum = TestNum::from_int(-1).factorial();
     }
 
     #[test]
     #[should_panic(expected = "ln of non-positive number")]
     fn test_ln_non_positive() {
-        let _ = TestNum::ZERO.ln();
-    }
-
-    #[test]
-    fn test_taylor_series_helper() {
-        // Test that taylor_series works for a simple geometric series
-        let result = TestNum::taylor_series(
-            TestNum::ONE,
-            |term, _n| term / TestNum::from_int(2),
-            Some(5),
-        );
-
-        // 1 + 1/2 + 1/4 + 1/8 + 1/16 = 1.9375
-        let expected = TestNum::from_f32(1.9375);
-        assert_eq!(result, expected);
+        let _: TestNum = TestNum::ZERO.ln();
     }
 
     #[test]
     fn test_different_scales() {
         // Test with zero fractional digits
-        type IntegerNum = Num<0>;
+        type IntegerNum = Num<0, 0>;
         assert_eq!(
             IntegerNum::from_int(5) + IntegerNum::from_int(3),
             IntegerNum::from_int(8)
@@ -983,10 +961,10 @@ mod tests {
         ); // Integer division
 
         // Test with more fractional digits
-        type HighPrecisionNum = Num<8>;
+        type HighPrecisionNum = Num<8, 8>;
         assert_eq!(
-            HighPrecisionNum::from_f32(1.5) + HighPrecisionNum::from_f32(2.25),
-            HighPrecisionNum::from_f32(3.75)
+            HighPrecisionNum::from_f64(1.5) + HighPrecisionNum::from_f64(2.25),
+            HighPrecisionNum::from_f64(3.75)
         );
         assert_eq!(
             HighPrecisionNum::from_int(1).sqrt(),

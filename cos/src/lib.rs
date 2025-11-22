@@ -23,7 +23,7 @@ impl<const F: u8> Default for Calculator<F> {
 }
 
 impl<const F: u8> Calculator<F> {
-    #[must_use] 
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             a: Num::ZERO,
