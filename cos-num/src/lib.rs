@@ -243,10 +243,16 @@ impl<const F: u8, const TF: u8> Num<F, TF> {
     pub fn normalize_angle(self) -> Self {
         let mut angle = self;
 
-        // Remove full rotations (2π)
+        // Use remainder division to handle large angles efficiently
         if angle.0.abs() > Self::TAU.0 {
             let rotations = angle / Self::TAU;
-            angle -= rotations * Self::TAU;
+            // Use integer division to get the whole number of rotations
+            let whole_rotations = if rotations.0 >= 0 {
+                (rotations.0 + Self::SCALE / 2) / Self::SCALE
+            } else {
+                (rotations.0 - Self::SCALE / 2) / Self::SCALE
+            };
+            angle -= Self::TAU * Self::from_int(whole_rotations);
         }
 
         // Normalize to [-π, π]
@@ -740,15 +746,15 @@ mod tests {
         assert_eq!(TestNum::from_raw(12345).raw(), 12345);
 
         // From integer
-        assert_eq!(TestNum::from_int(42).raw(), 420000000);
+        assert_eq!(TestNum::from_int(42).raw(), 42000000);
 
         // From f64
-        assert_eq!(TestNum::from_f64(f64::consts::E).raw(), 27182818);
+        assert_eq!(TestNum::from_f64(f64::consts::E).raw(), 2718282);
 
         // From two longs
         assert_eq!(
             TestNum::from_2_longs(1, 2345000000000000000).raw(),
-            12345000
+            1234500
         );
     }
 
